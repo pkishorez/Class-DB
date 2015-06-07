@@ -5,3 +5,4 @@
 /libraries/a.out
 *.o
 *.out
+/tests/test
