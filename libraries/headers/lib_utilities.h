@@ -7,10 +7,10 @@
  */
 
 #define assert_msg(expr, msg) \
-	if (!expr)\
+	if (!(expr))\
 	{\
 		printf("File : %s :%d: %s\n", __FILE__, __LINE__ , msg);\
-		exit(0);\
+		return 0;\
 	}
 
 int U_streq(char *s1, char *s2);
