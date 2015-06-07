@@ -3,3 +3,5 @@
 /tests/seatest-master.zip
 /tests/test.c
 /libraries/a.out
+*.o
+*.out
