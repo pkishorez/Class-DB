@@ -16,6 +16,7 @@
 #include "headers/headers.h"
 #include "headers/lib_utilities.h"
 #include "headers/lib_bnf.h"
+#include <ctype.h>
 
 static int parse_char(void);
 
@@ -102,12 +103,15 @@ static int parse_char(void)
 			return parse_nterminal(bnf_parsed, str_parsed);
 		}
 		case '{' : {
+			// Functionality not implemented yet.
 			return 0;
 		}
 		case '(' : {
+			// This case should never occur.
 			return 0;
 		}
 		case ')' : {
+			// This case should never occur.
 			return 0;
 		}
 		default : {
@@ -121,6 +125,9 @@ static int parse_char(void)
 
 char * bnf_move_step(char *bnf_parsed)
 {
+	if (*bnf_parsed=='\0')
+		return bnf_parsed;
+
 	if (*bnf_parsed=='<')
 	{
 		if (*(bnf_parsed+1)!='>')
@@ -146,63 +153,79 @@ int parse_nterminal(char *bnf_parsed, char *str_parsed)
 		return 0;
 	if (U_streq("<digit>", bnf_parsed))
 	{
-		if (*str_parsed>='0' && *str_parsed<='9'){
+		if (isdigit(*str_parsed))
 			return 1;
-		}
 		return 0;
 	}
 	else if (U_streq("<lcase>", bnf_parsed))
 	{
-		if (*str_parsed>='a' && *str_parsed<='z'){
+		if (islower(*str_parsed))
 			return 1;
-		}
 		return 0;
 	}
 	else if (U_streq("<ucase>", bnf_parsed))
 	{
-		if (*str_parsed>='A' && *str_parsed<='Z'){
+		if (isupper(*str_parsed))
 			return 1;
-		}
 		return 0;
 	}
 	else if (U_streq("<alpha>", bnf_parsed))
 	{
-		if ((*str_parsed>='a' && *str_parsed<='z') || (*str_parsed>='A' && *str_parsed<='Z')){
+		if (isalpha(*str_parsed))
 			return 1;
-		}
+		return 0;
+	}
+	else if (U_streq("<alpha_>", bnf_parsed))
+	{
+		if (isalpha(*str_parsed) || (*str_parsed=='_'))
+			return 1;
+		return 0;
+	}
+	else if (U_streq("<alnum>", bnf_parsed))
+	{
+		if (isalnum(*str_parsed))
+			return 1;
+		return 0;
+	}
+	else if (U_streq("<alnum_>", bnf_parsed))
+	{
+		if (isalnum(*str_parsed) || (*str_parsed=='_'))
+			return 1;
+		return 0;
+	}
+	else if (U_streq("<wspace>", bnf_parsed))
+	{
+		if ((*str_parsed==' ') || (*str_parsed=='\t'))
+			return 1;
 		return 0;
 	}
 	else if (U_streq("<<>", bnf_parsed))
 	{
-		if (*str_parsed=='<'){
+		if (*str_parsed=='<')
 			return 1;
-		}
 		return 0;
 	}
 	else if (U_streq("<>>", bnf_parsed))
 	{
-		if (*str_parsed=='>'){
+		if (*str_parsed=='>')
 			return 1;
-		}
 		return 0;
 	}
 	else if (U_streq("<{>", bnf_parsed))
 	{
-		if (*str_parsed=='{'){
+		if (*str_parsed=='{')
 			return 1;
-		}
 		return 0;
 	}
 	else if (U_streq("<}>", bnf_parsed))
 	{
-		if (*str_parsed=='}'){
+		if (*str_parsed=='}')
 			return 1;
-		}
 		return 0;
 	}
 	else
 	{
-		printf("This is not a non terminal.\n");
+		// This is not a non terminal.
 		return 0;
 	}
 }
