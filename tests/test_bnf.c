@@ -10,8 +10,8 @@
 #include "../libraries/headers/lib_bnf.h"
 #include "seatest/seatest.h"
 
-void bnf_nterminal_tests();
-void bnf_nterminal_tests()
+void bnf_terminal_tests();
+void bnf_terminal_tests()
 {
 	// DIGIT NON TERMINAL
 	char i;
@@ -19,34 +19,34 @@ void bnf_nterminal_tests()
 		char ch[2]="";
 		ch[0] = i;
 		ch[1] = '\0';
-		assert_true(parse_nterminal("<digit>", ch));
-		assert_true(parse_nterminal("<alnum>", ch));
-		assert_true(parse_nterminal("<alnum_>", ch));
+		assert_true(parse_terminal("<digit>", ch));
+		assert_true(parse_terminal("<alnum>", ch));
+		assert_true(parse_terminal("<alnum_>", ch));
 	}
 	for (i='a'; i<='z'; i++){
 		char ch[2]="";
 		ch[0] = i;
 		ch[1] = '\0';
-		assert_true(parse_nterminal("<lcase>", ch));
-		assert_true(parse_nterminal("<alpha>", ch));
-		assert_true(parse_nterminal("<alnum>", ch));
-		assert_true(parse_nterminal("<alnum_>", ch));
-		assert_true(parse_nterminal("<alpha_>", ch));
+		assert_true(parse_terminal("<lcase>", ch));
+		assert_true(parse_terminal("<alpha>", ch));
+		assert_true(parse_terminal("<alnum>", ch));
+		assert_true(parse_terminal("<alnum_>", ch));
+		assert_true(parse_terminal("<alpha_>", ch));
 	}
 	for (i='A'; i<='Z'; i++){
 		char ch[2]="";
 		ch[0] = i;
 		ch[1] = '\0';
-		assert_true(parse_nterminal("<ucase>", ch));
-		assert_true(parse_nterminal("<alpha>", ch));
-		assert_true(parse_nterminal("<alnum>", ch));
-		assert_true(parse_nterminal("<alnum_>", ch));
-		assert_true(parse_nterminal("<alpha_>", ch));
+		assert_true(parse_terminal("<ucase>", ch));
+		assert_true(parse_terminal("<alpha>", ch));
+		assert_true(parse_terminal("<alnum>", ch));
+		assert_true(parse_terminal("<alnum_>", ch));
+		assert_true(parse_terminal("<alpha_>", ch));
 	}
 	
-	assert_true(parse_nterminal("<<>", "<"));
-	assert_true(parse_nterminal("<>>", ">"));
-	assert_true(parse_nterminal("<{>", "{"));
+	assert_true(parse_terminal("<<>", "<"));
+	assert_true(parse_terminal("<>>", ">"));
+	assert_true(parse_terminal("<{>", "{"));
 }
 
 void bnf_move_step_tests();
@@ -88,12 +88,15 @@ void parse_bnf_tests()
 	assert_false(parse_bnf(variable, "123kishore", NULL, 0));
 	assert_true	(parse_bnf(variable, "__kishore", NULL, 0));
 	assert_true(parse_bnf(variable, "kishore___123", NULL, 0));
-
+	
+	
+	assert_true(parse_bnf("!kkishore", "ikishore", NULL, 0));
+	assert_false(parse_bnf("!<wspace>kishore", " ishore", NULL, 0));
 }
 void test_bnf()
 {
 	test_fixture_start();
-	run_test(bnf_nterminal_tests);
+	run_test(bnf_terminal_tests);
 	run_test(bnf_move_step_tests);
 	run_test(parse_bnf_tests);
 	test_fixture_end();

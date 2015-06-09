@@ -99,6 +99,20 @@ static int parse_char(void)
 {
 	switch(*bnf_parsed)
 	{
+		/**
+		 * !<item>
+		 * parses if string is not <item> at the place of grammar.
+		 * where <item> is any valid terminal or non terminal or a
+		 * compound terminal.
+		 * 
+		 * Ex : "!<wspace>"
+		 *      passes : "k", "i", "ksoijda", "!ksoi", "2344!" etc
+		 *      fails  : " k", "\tkishore", " 123" etc
+		 */
+		case '!' : {
+			bnf_parsed++;
+			return !parse_char();
+		}
 		case '<' : {
 			return parse_nterminal(bnf_parsed, str_parsed);
 		}
@@ -196,6 +210,12 @@ int parse_nterminal(char *bnf_parsed, char *str_parsed)
 	else if (U_streq("<wspace>", bnf_parsed))
 	{
 		if ((*str_parsed==' ') || (*str_parsed=='\t'))
+			return 1;
+		return 0;
+	}
+	else if (U_streq("<!>", bnf_parsed))
+	{
+		if (*str_parsed=='!')
 			return 1;
 		return 0;
 	}
