@@ -13,5 +13,5 @@ typedef struct
 
 int parse_bnf(char *bnf, char *string, bnf_cap *caps, int no_caps);
 
-int parse_nterminal(char *bnf_parsed, char *str_parsed);
+int parse_terminal(char *bnf_parsed, char *str_parsed);
 char * bnf_move_step(char *bnf_parsed);

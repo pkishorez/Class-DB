@@ -113,26 +113,43 @@ static int parse_char(void)
 			bnf_parsed++;
 			return !parse_char();
 		}
-		case '<' : {
-			return parse_nterminal(bnf_parsed, str_parsed);
-		}
+		/**
+		 * terminals bounded in {} constitutes single unit which parses
+		 * string if it includes any of the terminal inside {}, and do
+		 * not parses if none of the terminals in {} equals.
+		 * 
+		 * ! within {} is not allowed.
+		 * Also character class within character class is also not allowed.
+		 * Every `{` should follow `}`. Failure to have it means, BNF grammar
+		 * error.
+         */
 		case '{' : {
-			// Functionality not implemented yet.
-			return 0;
-		}
-		case '(' : {
-			// This case should never occur.
-			return 0;
-		}
-		case ')' : {
-			// This case should never occur.
-			return 0;
+			static int checking = 0;
+			assert_msg(!checking, "{ within {} is not allowed");
+			checking = 1;
+
+			char *tmp_bnf = bnf_parsed + 1;
+
+			while (1)
+			{
+				assert_msg(*tmp_bnf!='{' , "{ within {} is not allowed");
+				assert_msg(*tmp_bnf!='!' , "! within {} is not allowed");
+				assert_msg(*tmp_bnf!='\0' , "{ should follow }.");
+
+				if (*tmp_bnf=='}'){
+					checking = 0;
+					return 0;
+				}
+				if (parse_terminal(tmp_bnf, str_parsed))
+				{
+					checking = 0;
+					return 1;
+				}
+				tmp_bnf++;
+			}
 		}
 		default : {
-			if (*bnf_parsed==*str_parsed)
-				return 1;
-			return 0;
-			break;
+			return parse_terminal(bnf_parsed, str_parsed);
 		}
 	}
 }
@@ -159,9 +176,17 @@ char * bnf_move_step(char *bnf_parsed)
 			return bnf_parsed+3;
 		}
 	}
+	else if (*bnf_parsed=='{')
+	{
+		int end = 0;
+		while (*(bnf_parsed+end)!='}' && *(bnf_parsed+end)!='\0')
+			end++;
+		return bnf_parsed+end+1;
+	}
 	return bnf_parsed+1;
 }
-int parse_nterminal(char *bnf_parsed, char *str_parsed)
+
+int parse_terminal(char *bnf_parsed, char *str_parsed)
 {
 	if (*str_parsed=='\0')
 		return 0;
@@ -243,9 +268,24 @@ int parse_nterminal(char *bnf_parsed, char *str_parsed)
 			return 1;
 		return 0;
 	}
+	else if (U_streq("<(>", bnf_parsed))
+	{
+		if (*str_parsed=='(')
+			return 1;
+		return 0;
+	}
+	else if (U_streq("<)>", bnf_parsed))
+	{
+		if (*str_parsed==')')
+			return 1;
+		return 0;
+	}
 	else
 	{
-		// This is not a non terminal.
+		assert_msg(*bnf_parsed!='<', "Undefined token defined <.");
+
+		if (*bnf_parsed==*str_parsed)
+			return 1;
 		return 0;
 	}
 }
