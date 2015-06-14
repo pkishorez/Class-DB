@@ -8,6 +8,7 @@
 
 #include "../libraries/headers/headers.h"
 #include "../libraries/headers/lib_bnf.h"
+#include "http_parser.h"
 #include "seatest/seatest.h"
 
 void bnf_terminal_tests();
@@ -65,7 +66,7 @@ void parse_bnf_tests();
 void parse_bnf_tests()
 {
 	assert_true(parse_bnf("<digit>", "123", NULL, 0));
-	assert_false(parse_bnf("<digit><digit><digit><digit>", "123", NULL, 0));
+	assert_true(parse_bnf("<digit><digit><digit><digit>", "123", NULL, 0)==ERROR_STRING_INCOMPLETE);
 	assert_true(parse_bnf("<digit><digit><digit>", "123", NULL, 0));
 	assert_true(parse_bnf("<digit><alpha><lcase><ucase>", "1AbC", NULL, 0));
 	assert_true(parse_bnf("<digit>abc<alpha>def<lcase><ucase>", "1abcAdefbC", NULL, 0));
@@ -79,19 +80,52 @@ void parse_bnf_tests()
 	
 	assert_true(parse_bnf("(*<digit>)(abc)<alpha>def(<lcase><ucase>)", "abcAdefbC", caps, 5));
 	
-	assert_false(parse_bnf("(+<digit>)(abc)<alpha>def(<lcase><ucase>)", "abcAdefbC", caps, 5));
+	assert_true(parse_bnf("(+<digit>)(abc)<alpha>def(<lcase><ucase>)", "abcAdefbC", caps, 5)==ERROR_PARSE);
 	
 	char *variable = "<alpha_>*<alnum_>";
 	assert_true(parse_bnf(variable, "_kishore", NULL, 0));
 	assert_true(parse_bnf(variable, "_kishore_123", NULL, 0));
 	assert_true(parse_bnf(variable, "kishore123", NULL, 0));
-	assert_false(parse_bnf(variable, "123kishore", NULL, 0));
+	assert_true(parse_bnf(variable, "123kishore", NULL, 0)==ERROR_PARSE);
 	assert_true	(parse_bnf(variable, "__kishore", NULL, 0));
 	assert_true(parse_bnf(variable, "kishore___123", NULL, 0));
 	
 	
 	assert_true(parse_bnf("!kkishore", "ikishore", NULL, 0));
-	assert_false(parse_bnf("!<wspace>kishore", " ishore", NULL, 0));
+	assert_true(parse_bnf("!<wspace>kishore", " ishore", NULL, 0)==ERROR_PARSE);
+	
+	
+	// Add tests for compound terminal.
+	assert_true(parse_bnf("{kishore}", "a", NULL, 0)==ERROR_PARSE);
+	assert_true(parse_bnf("{kishore}", "k", NULL, 0));
+	assert_true(parse_bnf("(*{kishore})(*{kittu})", "kishorekittu", caps, 2));
+	assert_true(parse_bnf("(*{abcd})(*!{abcd})", "abcde!234agh!123", caps, 2));
+}
+
+void test_http_protocol();
+void test_http_protocol()
+{
+	int count = 0;
+	for (count=0; requests[count].name; count++)
+	{
+		printf("Testing %d\n\n", count);
+		if (requests[count].type != HTTP_REQUEST)
+			continue;
+		char bnf_http_status[] = "*<wspace>(+<alpha>) (*!<wspace>) HTTP/(+<digit>).(+<digit>)\r\n";
+		char bnf_http_header[] = "*<wspace>(*!<wspace>)*<wspace>:*<wspace>(+!\r)\r\n";
+		bnf_cap caps[10];
+		char *raw = (char *)requests[count].raw;
+		char *request_url = (char *)requests[count].request_url;
+		int status = parse_bnf(bnf_http_status, raw, caps, 10);
+
+		int major = atoi(caps[2].ptr);
+		int minor = atoi(caps[3].ptr);
+		assert_true(status>0);
+
+		assert_string_starts_with(request_url, caps[1].ptr);
+		assert_true(requests[count].http_major==major);
+		assert_true(requests[count].http_minor==minor);
+	}
 }
 void test_bnf()
 {
@@ -99,5 +133,6 @@ void test_bnf()
 	run_test(bnf_terminal_tests);
 	run_test(bnf_move_step_tests);
 	run_test(parse_bnf_tests);
+	run_test(test_http_protocol);
 	test_fixture_end();
 }
