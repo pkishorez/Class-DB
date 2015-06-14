@@ -70,8 +70,11 @@ int parse_bnf(char *bnf, char *string, bnf_cap *caps, int no_caps)
 			}
 			case '+' : {
 				bnf_parsed++;
-				if (!parse_char())
-					return 0;
+				if (!parse_char()){
+					if (*str_parsed=='\0')
+						return ERROR_STRING_INCOMPLETE;
+					return ERROR_PARSE;
+				}
 				str_parsed++;
 				while (1)
 				{
@@ -83,11 +86,14 @@ int parse_bnf(char *bnf, char *string, bnf_cap *caps, int no_caps)
 				break;
 			}
 			case '\0' : {
-				return 1;
+				return str_parsed - string;
 			}
 			default : {
-				if (!parse_char())
-					return 0;
+				if (!parse_char()){
+					if (*str_parsed=='\0')
+						return ERROR_STRING_INCOMPLETE;
+					return ERROR_PARSE;
+				}
 				bnf_parsed = bnf_move_step(bnf_parsed);
 				str_parsed++;
 			}
@@ -111,7 +117,9 @@ static int parse_char(void)
 		 */
 		case '!' : {
 			bnf_parsed++;
-			return !parse_char();
+			int status = parse_char();
+			bnf_parsed--;
+			return !status;
 		}
 		/**
 		 * terminals bounded in {} constitutes single unit which parses
@@ -175,6 +183,9 @@ char * bnf_move_step(char *bnf_parsed)
 			}
 			return bnf_parsed+3;
 		}
+	}
+	else if (*bnf_parsed=='!'){
+		return bnf_move_step(bnf_parsed+1);
 	}
 	else if (*bnf_parsed=='{')
 	{

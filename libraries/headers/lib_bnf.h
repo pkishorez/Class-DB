@@ -15,3 +15,8 @@ int parse_bnf(char *bnf, char *string, bnf_cap *caps, int no_caps);
 
 int parse_terminal(char *bnf_parsed, char *str_parsed);
 char * bnf_move_step(char *bnf_parsed);
+
+enum bnf_errors{
+	ERROR_PARSE					=	-1,
+	ERROR_STRING_INCOMPLETE		=	-2
+};
