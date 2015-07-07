@@ -103,6 +103,8 @@ int parse_bnf(char *bnf, char *string, bnf_cap *caps, int no_caps)
 
 static int parse_char(void)
 {
+	if (*str_parsed == '\0')
+		return 0;
 	switch(*bnf_parsed)
 	{
 		/**
