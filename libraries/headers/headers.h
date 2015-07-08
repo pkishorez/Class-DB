@@ -16,6 +16,8 @@
 #include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <termios.h>
+#include <stdint.h>
 
 #include <sys/mman.h>
 #include <sys/stat.h>
