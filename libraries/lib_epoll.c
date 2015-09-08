@@ -15,14 +15,15 @@
 static struct epoll_event * _epoll_interest_list(char *, int data);
 static struct epoll_event * _epoll_interest_list(char *interest, int data)
 {
-	struct epoll_event *ev = (struct epoll_event *)malloc(sizeof (struct epoll_event));
-	ev->events |= EPOLLET;
+	struct epoll_event ev;
+	ev.events = 0;
+	ev.events |= EPOLLET;
 	if (interest[0]=='r' || interest[1]=='r')
-		ev->events |= EPOLLIN;
+		ev.events |= EPOLLIN;
 	if (interest[0]=='w' || interest[1]=='w')
-		ev->events |= EPOLLOUT;
-	ev->data.fd = data;
-	return ev;
+		ev.events |= EPOLLOUT;
+	ev.data.fd = data;
+	return &ev;
 }
 
 /**
