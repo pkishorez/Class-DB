@@ -21,23 +21,21 @@ static int first_free_instance = 0;
 
 static int get_free_block();
 static void make_free_block(int n);
-static int append_memory_block(int index, char *data, int len);
-void static _instance_get(int index, struct memory_get *ch, int is_new);
 
 
 
 /**
  * Get a free block of memory from _blocks array.
- * @returns index of first free block and -1 on error.
+ * @returns index of the free block or -1 if no blocks are available
  */
 static int get_free_block()
 {
 	if (first_free_memblock==-1)
 		return -1;
-	
+
 	int f_free_block = first_free_memblock;
 	first_free_memblock = mem_blocks[first_free_memblock].__next_free_block;
-	
+
 	mem_blocks[f_free_block].__is_free_block = 0;
 	mem_blocks[f_free_block].__filled = 0;
 	mem_blocks[f_free_block].__next_block = -1;
@@ -52,12 +50,10 @@ static int get_free_block()
  */
 static void make_free_block(int n)
 {
-	assert(n<N_MEM_BLOCKS);
+	assert(n<N_MEM_BLOCKS && n>=0);
 	assert(!mem_blocks[n].__is_free_block);
 	mem_blocks[n].__is_free_block = 1;
-	
 	mem_blocks[n].__next_free_block = first_free_memblock;
-
 	first_free_memblock = n;
 }
 
@@ -70,47 +66,25 @@ static void make_free_block(int n)
  */
 void memory_init()
 {
+	assert(N_MEM_BLOCKS>=1 && MEM_BLOCK_SIZE>=1);
 	int i;
 	for (i=0; i<N_MEM_BLOCKS; i++)
 	{
 		instances[i].__next_free_block = i+1;
 		instances[i].__is_free_block = 1;
+		instances[i].t_length = 0;
+		instances[i].__final_block = -1;
+		instances[i].__first_block = -1;
 
 		mem_blocks[i].__next_free_block = i+1;
 		mem_blocks[i].__is_free_block = 1;
+		mem_blocks[i].__next_block = -1;
 	}
 	instances[i-1].__next_free_block = -1;
 	mem_blocks[i-1].__next_free_block = -1;
-}
 
-
-/**
- * Appends data to the memory instance whose index is index.
- * @param index : reference of memory instance.
- * @param data : Data that should be appended to the memory instance.
- * @param len : Length of data that should be appended.
- * @returns length of data that was written.
- * 
- * This function appends len length data to the memory instance
- * whose reference is index. If the length copied is less than the length
- * that should be copied, probably there is error in allocating more memory.
- */
-static int append_memory_block(int index, char *data, int len)
-{
-	assert(index<N_MEM_BLOCKS);
-	assert(!mem_blocks[index].__is_free_block);
-	
-	int capacity = MEM_BLOCK_SIZE - mem_blocks[index].__filled;
-	if (capacity>=len){
-		strncpy(mem_blocks[index].cdata + mem_blocks[index].__filled, data, len);
-		mem_blocks[index].__filled += len;
-		return len;
-	}
-	else{
-		strncpy(mem_blocks[index].cdata + mem_blocks[index].__filled, data, capacity);
-		mem_blocks[index].__filled += capacity;
-		return capacity;
-	}
+	first_free_memblock = 0;
+	first_free_instance = 0;
 }
 
 /**
@@ -125,20 +99,25 @@ int memory_instance_create()
 	if (first_free_instance==-1)
 		return -1;
 
-	
-	int f_free_instance = first_free_instance;
-	first_free_instance = instances[first_free_instance].__next_free_block;
-	
-	instances[f_free_instance].__is_free_block = 0;
-	
-	// Create a new memory block and set default values to memory instance.
-	int mem_block = get_free_block();
-	instances[f_free_instance].__first_block = mem_block;
-	instances[f_free_instance].__final_block = mem_block;
-	instances[f_free_instance].__index = 0;
-	instances[f_free_instance].t_length = 0;
 
-	return f_free_instance;
+	int new_instance = first_free_instance;
+	first_free_instance = instances[first_free_instance].__next_free_block;
+
+	instances[new_instance].__is_free_block = 0;
+
+	// Create a new memory block and set default values to memory instance.
+	int f_block = get_free_block();
+	if (f_block==-1){
+		memory_instance_delete(new_instance);
+		return -1;
+	}
+	mem_blocks[f_block].__next_block = -1;
+	instances[new_instance].__first_block = f_block;
+	instances[new_instance].__final_block = f_block;
+	instances[new_instance].__index = 0;
+	instances[new_instance].t_length = 0;
+
+	return new_instance;
 }
 
 /**
@@ -148,25 +127,26 @@ int memory_instance_create()
  * This function deletes the memory instance of index n,
  * along with all the memory blocks associated with it.
  */
-void memory_instance_delete(int n)
+void memory_instance_delete(int mem_index)
 {
-	assert(n<N_MEM_BLOCKS);
-	assert(!instances[n].__is_free_block);
-	instances[n].__is_free_block = 1;
-	
-	int f_block = first_free_instance;
-	instances[n].__next_free_block = f_block;
+	assert((mem_index<N_MEM_BLOCKS) && (mem_index>=0));
+	assert(!instances[mem_index].__is_free_block);
 	
 	/* Clean up of memory blocks associated with memory instance of index.*/
-	int i = instances[n].__first_block;
+	int i = instances[mem_index].__first_block;
 	
 	while (i!=-1){
 		int j = mem_blocks[i].__next_block;
 		make_free_block(i);
 		i = j;
 	}
+
+	instances[mem_index].__is_free_block = 1;
 	
-	first_free_instance = n;
+	int f_block = first_free_instance;
+	instances[mem_index].__next_free_block = f_block;
+	first_free_instance = mem_index;
+
 }
 
 
@@ -182,109 +162,220 @@ void memory_instance_delete(int n)
  * Return value less than the length provided means, insufficient storage
  * occured.
  */
-int memory_instance_append(int index, char *data, int len)
+int memory_instance_append(int memins_index, char *data, int len)
 {
-	assert(!instances[index].__is_free_block);
+	assert(!instances[memins_index].__is_free_block);
+	assert(len>=0);
 
 	int copied = 0;
-	int l_block = instances[index].__final_block;
+
+	int l_block = instances[memins_index].__final_block;
+
 	while (copied != len){
-		int cp = append_memory_block(l_block, data+copied, len-copied);
-		if (cp==0){
-			int block = l_block;
-			l_block = get_free_block();
-			if (l_block==-1){
-				return copied;
-			}
-			mem_blocks[block].__next_block = l_block;
-			instances[index].__final_block = l_block;
+		int capacity = MEM_BLOCK_SIZE - mem_blocks[l_block].__filled;
+		if (capacity >= (len-copied)){
+			memcpy(mem_blocks[l_block].cdata + mem_blocks[l_block].__filled, data+copied, len-copied);
+			mem_blocks[l_block].__filled += len-copied;
+			instances[memins_index].t_length += len-copied;
+			instances[memins_index].__final_block = l_block;
+			return len;
 		}
 		else{
-			copied += cp;
-			instances[index].t_length += cp;
+			memcpy(mem_blocks[l_block].cdata + mem_blocks[l_block].__filled, data+copied, capacity);
+			copied += capacity;
+			mem_blocks[l_block].__filled += capacity;
+			instances[memins_index].t_length += capacity;
+
+			int new_block = get_free_block();
+			if (new_block==-1){
+				return copied;
+			}
+			mem_blocks[l_block].__next_block = new_block;
+			instances[memins_index].__final_block = new_block;
+			l_block = new_block;
 		}
 	}
-	return len;
-}
-
-
-void memory_instance_print(int index)
-{
-	assert(index<N_MEM_BLOCKS);
-	assert(!instances[index].__is_free_block);
-	int f_block = -1;
-	int l_block = instances[index].__final_block;
-	
-	//printf("TOTAL LENGTH OF STRING IS : %d\n", instances[index].t_length);
-	do{
-		if (f_block==-1)
-			f_block = instances[index].__first_block;
-		else
-			f_block = mem_blocks[f_block].__next_block;
-		int i=0;
-		char *buffer = mem_blocks[f_block].cdata;
-		int size = mem_blocks[f_block].__filled;
-		//printf("\n\n=======NEW BLOCK==========%d\n", size);
-		for (i=0; i<size; i++)
-			printf("%c", buffer[i]);
-	}
-	while ((f_block!=l_block));
-	printf("<END>");
-}
-
-
-int static _instance_get(int index, struct memory_get *ch, int is_new)
-{
-	assert(index<N_MEM_BLOCKS);
-	assert(!instances[index].__is_free_block);
-
-	int block;
-	if (is_new){
-		block = instances[index].__first_block;
-		if (block==-1)
-			return 0;
-	}
-	else{
-		assert(ch->_index!=-1);
-		block = mem_blocks[ch->_index].__next_block;
-		if (block==-1){
-			ch->_index = -1;
-			ch->len = 0;
-			ch->ptr = NULL;
-			return 0;
-		}
-	}
-	ch->_index = block;
-	ch->len = mem_blocks[block].__filled;
-	ch->ptr = mem_blocks[block].cdata;
-	return 1;
 }
 
 
 /**
- * Initiate get request to retrieve data in a controlled manner.
- * @param index : Memory instance index.
- * @param ch : struct memory_get object where the details of
- * get request are updated.
+ * Gets the length of data stored in memory instance `mem_index`.
+ * @param mem_index : memory instance whose length is to be returned
+ * @returns length of data stored in memory instance `mem_index`.
  */
-int memory_instance_initget(int index, struct memory_get *ch)
+int memory_instance_get_len(int mem_index)
 {
-	return _instance_get(index, ch, 1);
+	assert((mem_index>=0) && (mem_index<N_MEM_BLOCKS) && (!instances[mem_index].__is_free_block));
+	return instances[mem_index].t_length;
 }
 
+/**
+ * Copies data from memory instance `mem_index` of length `len` starting
+ * from `index` to `target`.
+ * @param mem_index : memory instance whose data should be copied.
+ * @param index : offset from where copying should start in memory instance.
+ * @param target : string where data should be copied.
+ * @param len : Length of data that should be copied from index.
+ * @returns length of data copied.
+ */
+int memory_instance_copy(int mem_index, int index, char *target, int len)
+{
+	memory_get mg = memory_instance_get(mem_index, index);
+	return memory_instance_copy_t(mg, target, len);
+}
 
 /**
- * Get data from memory instance in a controlled fashion.
- * @param index : The instance of memory module.
- * @param ch : structure variable which determines the length and buffer
- * of returned data.
+ * Copies data of length `len` from reference point to target.
+ * @param mg : reference point from where data should be start copying.
+ * @param target : target string where data should be copied.
+ * @param len : length of data that should be copied starting from `mg`
+ * @returns length of data copied.
+ */
+int memory_instance_copy_t(memory_get mg, char *target, int len)
+{
+	int copied = 0;
+
+	int block = mg._block_index;
+	int index = mg._index;
+	while (copied != len)
+	{
+		int capacity = mem_blocks[block].__filled - index;
+		if (capacity >= (len-copied)){
+			memcpy(target+copied, mem_blocks[block].cdata + index, len-copied);
+			return len;
+		}
+		else{
+			memcpy(target+copied, mem_blocks[block].cdata + index, capacity);
+			copied += capacity;
+			block = mem_blocks[block].__next_block;
+			if (block == -1)
+				return copied;
+			index = 0;
+		}
+	}
+	return copied;
+}
+
+/**
+ * Get a reference to memory instance at position `index`.
+ * @param mem_index : memory instance index
+ * @param index : position at which reference is needed.
+ * @returns memory instance reference at position `index`
  * 
- * Getting data from memory instance is a challenge since the data
- * is not contiguous but stored in different buffers. The `ch` structure,
- * gets updated with the length and buffer along with that some internal
- * variables, which facilitates getting more data further.
+ * Reference is used to carry out operations like get character,
+ * copy memory from reference point till specified length etc. Reference
+ * is like index in array which points a particular element in it.
  */
-int memory_instance_get(int index, struct memory_get *ch)
+memory_get memory_instance_get(int mem_index, int index)
 {
-	return _instance_get(index, ch, 0);
+	static memory_get mg;
+	mg._instance_index = mem_index;
+
+	if (instances[mem_index].__is_free_block){
+		mg._block_index = -1;
+		mg._index = -1;
+		return mg;
+	}
+	int block = instances[mem_index].__first_block;
+	int filled = mem_blocks[block].__filled;
+	while (index>=filled){
+		block = mem_blocks[block].__next_block;
+		if (block==-1){
+			mg._block_index = -1;
+			mg._index = -1;
+			return mg;
+		}
+		filled += mem_blocks[block].__filled;
+	}
+	mg._block_index = block;
+	mg._index = mem_blocks[block].__filled - (filled - index);
+	return mg;
+}
+
+
+/**
+ * Gets reference of memory instance at end positon.
+ * @param mem_index : memory instance whose end position reference is needed.
+ * @returns reference of memory instance's end point.
+ * @see `memory_instance_get`
+ */
+memory_get memory_instance_get_end_reference(int mem_index)
+{
+	assert((mem_index>=0) && (mem_index<N_MEM_BLOCKS) && (!instances[mem_index].__is_free_block));
+	memory_get mg;
+	mg._instance_index = mem_index;
+
+	int l_block = instances[mem_index].__final_block;
+	mg._block_index = l_block;
+	mg._index = mem_blocks[l_block].__filled;
+	return mg;
+}
+
+/**
+ * Gets character at reference `mg`
+ * @param mg : reference point of an instance.
+ * @returns character at reference point `mg`
+ */
+int memory_instance_get_char(memory_get mg)
+{
+	if (mg->_block_index==-1)
+		return -1;
+	return mem_blocks[mg->_block_index].cdata[mg->_index];
+}
+
+/**
+ * Gets character at reference `mg` and moves the reference
+ * step ahead.
+ * @param mg : pointer to reference.
+ * @returns character at reference `mg`
+ */
+int memory_instance_get_and_move_char(memory_get *mg)
+{
+	if (mg->_block_index==-1)
+		return -1;
+	int ch = mem_blocks[mg->_block_index].cdata[mg->_index];
+	if (mem_blocks[mg->_block_index].__filled > (mg->_index+1)){
+		mg->_index++;
+		return ch;
+	}else{
+		mg->_block_index = mem_blocks[mg->_block_index].__next_block;
+		mg->_index = 0;
+		return ch;
+	}
+}
+
+
+/**
+ * Prints the data in memory instance referred by mem_index.
+ * @param mem_index : whose data needs to be printed.
+ */
+void memory_instance_print(int mem_index)
+{
+	assert((mem_index>=0) && (mem_index<=N_MEM_BLOCKS) && (!instances[mem_index].__is_free_block));
+	int block = instances[mem_index].__first_block;
+	while (block!=-1){
+		int i=0;
+		for (i=0; i<mem_blocks[block].__filled; i++){
+			if (isprint(mem_blocks[block].cdata[i])){
+				printf("%c", mem_blocks[block].cdata[i]);
+			}
+			else
+				printf("{%d}", mem_blocks[block].cdata[i]);
+		}
+		block = mem_blocks[block].__next_block;
+	}
+}
+
+void memory_debug()
+{
+	printf("\n\nFIRST_FREE_MEM_BLOCK : %d, FIRST_FREE_INSTANCE : %d\n\n", first_free_memblock, first_free_instance);
+	int i=0;
+	printf("MEMBLOCKS\n\n");
+	for (i=0; i<N_MEM_BLOCKS; i++){
+		printf("%d : filled{%d}, is_free_block{%d}, next_block{%d}, next_free_block{%d}\n",i, mem_blocks[i].__filled, mem_blocks[i].__is_free_block, mem_blocks[i].__next_block, mem_blocks[i].__next_free_block);
+	}
+	printf("INSTANCES\n\n");
+	for (i=0; i<N_MEM_BLOCKS; i++){
+		printf("%d : Total{%d}, is_free_block{%d}, first_block{%d}, last_block{%d}\n",i, instances[i].t_length, instances[i].__is_free_block, instances[i].__first_block, instances[i].__final_block);
+	}
 }
