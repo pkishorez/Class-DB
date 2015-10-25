@@ -4,7 +4,7 @@
  * @date July 3, 2015, 1:28 PM 
  */
 
-
+#include "lib_types.h"
 char* sha1(char *msg);
 unsigned char* bsha1(char *msg);
 

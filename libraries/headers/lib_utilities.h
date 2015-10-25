@@ -6,13 +6,7 @@
  * @brief Easy to use functions used in Class-DB project.
  */
 
-#define assert_msg(expr, msg) \
-	if (!(expr))\
-	{\
-		printf("File : %s :%d: %s\n", __FILE__, __LINE__ , msg);\
-		return 0;\
-	}
-
+#include "lib_types.h"
 int U_streq(char *s1, char *s2);
 
 uint16_t lrotate16(uint16_t num, int k);
