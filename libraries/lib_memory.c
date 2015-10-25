@@ -312,15 +312,38 @@ memory_get memory_instance_get_end_reference(int mem_index)
 }
 
 /**
+ * Move the refence point `offset` steps ahead.
+ * @param mg : reference point that needs to be moved.
+ * @param offset : offset that the reference should be moved.
+ * @returns number of steps moved.
+ */
+int memory_instance_ref_move_ahead(memory_get *mg, int offset)
+{
+	int moved = 0;
+	while (moved!=offset){
+		if (mg->_block_index==-1)
+			return moved;
+		if (mem_blocks[mg->_block_index].__filled > (mg->_index+1)){
+			mg->_index++;
+		}else{
+			mg->_block_index = mem_blocks[mg->_block_index].__next_block;
+			mg->_index = 0;
+		}
+		moved++;
+	}
+	return moved;
+}
+
+/**
  * Gets character at reference `mg`
  * @param mg : reference point of an instance.
  * @returns character at reference point `mg`
  */
 int memory_instance_get_char(memory_get mg)
 {
-	if (mg->_block_index==-1)
+	if (mg._block_index==-1)
 		return -1;
-	return mem_blocks[mg->_block_index].cdata[mg->_index];
+	return mem_blocks[mg._block_index].cdata[mg._index];
 }
 
 /**
