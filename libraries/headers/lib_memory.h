@@ -15,9 +15,11 @@ int memory_instance_get_len(int mem_index);
 
 int memory_instance_copy_t(memory_get mg, char *target, int len);
 int memory_instance_copy(int mem_index, int index, char *target, int len);
+int memory_instance_copy_string_t(memory_get mg, char *target);
 
 memory_get memory_instance_get(int mem_index, int index);
 memory_get memory_instance_get_end_reference(int mem_index);
+int memory_instance_ref_move_ahead(memory_get *mg, int offset);
 
 
 int memory_instance_get_char(memory_get mg);
