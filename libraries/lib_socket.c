@@ -22,7 +22,7 @@
  * to bind the port to that address. When success returns
  * the socket address or -1 on error.
  */
-int create_and_bind_socket(char *port)
+int socket_create_and_bind(char *port)
 {
 	// Get Address of this system.
 	int status, socket_fd;
@@ -68,7 +68,7 @@ int create_and_bind_socket(char *port)
  * select, epoll should be used for monitoring nonblocking
  * sockets events.
  */
-void make_socket_nonblocking(int socket)
+void socket_make_nonblocking(int socket)
 {
 	int flags, s;
 
@@ -95,7 +95,7 @@ void make_socket_nonblocking(int socket)
  * to the server specified in ip. Returns the socket on success
  * and -1 on error.
  */
-int connect_to_server(char *ip, char *port)
+int socket_connect_to_server(char *ip, char *port)
 {
 	// Get Address of this system.
 	int status, socket_fd = -1;
