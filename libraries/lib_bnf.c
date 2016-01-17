@@ -17,7 +17,6 @@
 #include "headers/lib_utilities.h"
 #include "headers/lib_memory.h"
 #include "headers/lib_bnf.h"
-#include <ctype.h>
 
 static int parse_char(void);
 
@@ -36,7 +35,7 @@ static memory_get mem_get;
  */
 static int get_char();
 static void move_char();
-static int parse_bnf(char *bnf, bnf_cap *caps, bnf_mcap *mcaps, int no_caps);
+static bnf_rstatus_t parse_bnf(char *bnf, bnf_cap *caps, bnf_mcap *mcaps, int no_caps);
 static char * bnf_move_step(char *bnf_parsed);
 static int parse_char(void);
 static int parse_terminal(char *bnf_parsed);
@@ -72,12 +71,20 @@ static void move_char()
  * @param mem_index : Memory instance where string is stored.
  * @param mcaps : array where the results of parsing are stored.
  * @param no_caps : number of caps that mcaps can hold.
- * @returns amount of string parsed.
+ * @returns bnf_rstatus_t whose value is length of string, bnf parsed so far and status.
  */
-int bnf_parse_memory(char *bnf, int mem_index, bnf_mcap *mcaps, int no_caps)
+bnf_rstatus_t bnf_parse_memory(char *bnf, int mem_index, bnf_mcap *mcaps, int no_caps)
 {
 	is_memory_module = 1;
 	mem_get = memory_instance_get(mem_index, 0);
+	return parse_bnf(bnf, NULL, mcaps, no_caps);
+}
+
+
+bnf_rstatus_t bnf_parse_memory_t(char *bnf, int mem_index, int offset, bnf_mcap *mcaps, int no_caps)
+{
+	is_memory_module = 1;
+	mem_get = memory_instance_get(mem_index, offset);
 	return parse_bnf(bnf, NULL, mcaps, no_caps);
 }
 
@@ -88,9 +95,9 @@ int bnf_parse_memory(char *bnf, int mem_index, bnf_mcap *mcaps, int no_caps)
  * @param str : string on which bnf is parsed.
  * @param caps : array where the results are stored.
  * @param no_caps : number of caps that caps array can store.
- * @returns amount of string parsed.
+ * @returns bnf_rstatus_t whose value is length of string, bnf parsed so far and status.
  */
-int bnf_parse_string(char *bnf, char *str, bnf_cap *caps, int no_caps)
+bnf_rstatus_t bnf_parse_string(char *bnf, char *str, bnf_cap *caps, int no_caps)
 {
 	is_memory_module = 0;
 	str_parsed = str;
@@ -105,23 +112,24 @@ int bnf_parse_string(char *bnf, char *str, bnf_cap *caps, int no_caps)
  * @param caps : array where result is updated
  * @param mcaps : memory module cap where result is updated.
  * @param no_caps : no of elements in caps array.
- * @returns integer whose value is length of string parsed so far.
+ * @returns bnf_rstatus_t whose value is length of string, bnf parsed so far and status.
  * 
  * The parameter bnf consists of BNF grammar upon which the
  * string is parsed with.
  */
-static int parse_bnf(char *bnf, bnf_cap *caps, bnf_mcap *mcaps, int no_caps)
+static bnf_rstatus_t parse_bnf(char *bnf, bnf_cap *caps, bnf_mcap *mcaps, int no_caps)
 {
 	int cap_no = 0;
 	bnf_parsed = bnf;
 	str_parsed_len = 0;
 
+	bnf_rstatus_t rstatus;
 	while (1)
 	{
 		switch(*bnf_parsed)
 		{
 			case '(' : {
-				assert_msg(cap_no<no_caps, "Number of caps should cope with number of brackets.");
+				assert(cap_no<no_caps);
 				if (!is_memory_module){
 					caps[cap_no].ptr = str_parsed;
 					caps[cap_no].len = str_parsed_len;
@@ -156,9 +164,13 @@ static int parse_bnf(char *bnf, bnf_cap *caps, bnf_mcap *mcaps, int no_caps)
 			case '+' : {
 				bnf_parsed++;
 				if (!parse_char()){
-					if (get_char()==-1)
-						return ERROR_STRING_INCOMPLETE;
-					return ERROR_PARSE;
+					rstatus.bnf_parsed = bnf_parsed-bnf;
+					if (get_char()==-1){
+						rstatus.status = BNF_ERROR_STRING_INCOMPLETE;
+						return rstatus;
+					}
+					rstatus.status = BNF_ERROR_PARSE;
+					return rstatus;
 				}
 				move_char();
 				while (1)
@@ -171,16 +183,28 @@ static int parse_bnf(char *bnf, bnf_cap *caps, bnf_mcap *mcaps, int no_caps)
 				break;
 			}
 			case '\0' : {
-				return str_parsed_len;
+				rstatus.bnf_parsed = bnf_parsed-bnf;
+				rstatus.status = str_parsed_len;
+				return rstatus;
 			}
 			default : {
-				if (!parse_char()){
-					if (get_char()==-1)
-						return ERROR_STRING_INCOMPLETE;
-					return ERROR_PARSE;
+				int status = parse_char();
+				if (!status){
+					rstatus.bnf_parsed = bnf_parsed-bnf;
+					if (get_char()==-1){
+						rstatus.status = BNF_ERROR_STRING_INCOMPLETE;
+						return rstatus;
+					}
+					rstatus.status = BNF_ERROR_PARSE;
+					return rstatus;
 				}
-				bnf_parsed = bnf_move_step(bnf_parsed);
-				move_char();
+				else if (status==1){
+					bnf_parsed = bnf_move_step(bnf_parsed);
+					move_char();
+				}
+				else if (status==2){
+					bnf_parsed = bnf_move_step(bnf_parsed);
+				}
 			}
 		}
 	}
@@ -204,6 +228,7 @@ static int parse_char(void)
 		 */
 		case '!' : {
 			bnf_parsed++;
+			assert(*bnf_parsed!='[');
 			int status = parse_char();
 			bnf_parsed--;
 			return !status;
@@ -220,16 +245,17 @@ static int parse_char(void)
          */
 		case '{' : {
 			static int checking = 0;
-			assert_msg(!checking, "{ within {} is not allowed");
+			assert(!checking);//, "{ within {} is not allowed");
 			checking = 1;
 
 			char *tmp_bnf = bnf_parsed + 1;
 
 			while (1)
 			{
-				assert_msg(*tmp_bnf!='{' , "{ within {} is not allowed");
-				assert_msg(*tmp_bnf!='!' , "! within {} is not allowed");
-				assert_msg(*tmp_bnf!='\0' , "{ should follow }.");
+				assert(*tmp_bnf!='{');// , "{ within {} is not allowed");
+				assert(*tmp_bnf!='!');// , "! within {} is not allowed");
+				assert(*tmp_bnf!='\0');// , "{ should follow }.");
+				assert(*tmp_bnf!='[');// Multiclass element not permitted.
 
 				if (*tmp_bnf=='}'){
 					checking = 0;
@@ -240,7 +266,7 @@ static int parse_char(void)
 					checking = 0;
 					return 1;
 				}
-				tmp_bnf++;
+				tmp_bnf=bnf_move_step(tmp_bnf);
 			}
 		}
 		default : {
@@ -253,6 +279,14 @@ static char * bnf_move_step(char *bnf_parsed)
 {
 	if (*bnf_parsed=='\0')
 		return bnf_parsed;
+
+	if (*bnf_parsed=='[')
+	{
+		while ((*bnf_parsed!=']') && (*bnf_parsed!='\0'))
+			bnf_parsed++;
+		bnf_parsed++;
+		return bnf_parsed;
+	}
 
 	if (*bnf_parsed=='<')
 	{
@@ -284,6 +318,25 @@ static char * bnf_move_step(char *bnf_parsed)
 	return bnf_parsed+1;
 }
 
+enum {
+	P_DIGIT,
+	P_LCASE,
+	P_UCASE,
+	P_ALPHA,
+	P_ALPHA_,
+	P_ALNUM,
+	P_ALNUM_,
+	P_WSPACE,
+	P_SEPARATOR,
+	P_EXCLAIM,
+	P_LT,
+	P_GT,
+	P_LBRACE,
+	P_RBRACE,
+	P_LBRACKET,
+	P_RBRACKET
+};
+
 static int parse_terminal(char *bnf_parsed)
 {
 	if (get_char()==-1)
@@ -293,6 +346,27 @@ static int parse_terminal(char *bnf_parsed)
 		if (isdigit(get_char()))
 			return 1;
 		return 0;
+	}
+	if (U_streq("[number]", bnf_parsed))
+	{
+		int ret = 0;
+		while (isdigit(get_char())){
+			ret = 2;
+			move_char();
+		}
+		return ret;
+	}
+	if (U_streq("[variable]", bnf_parsed))
+	{
+		int ret = 0;
+		
+		if (isalpha(get_char()) || get_char()=='_'){
+			move_char();
+			ret = 2;
+		}
+		while (isalnum(get_char()) || get_char()=='_')move_char();
+		
+		return ret;
 	}
 	else if (U_streq("<lcase>", bnf_parsed))
 	{
@@ -360,6 +434,12 @@ static int parse_terminal(char *bnf_parsed)
 			return 1;
 		return 0;
 	}
+	else if (U_streq("<*>", bnf_parsed))
+	{
+		if (get_char()=='>')
+			return 1;
+		return 0;
+	}
 	else if (U_streq("<{>", bnf_parsed))
 	{
 		if (get_char()=='{')
@@ -386,7 +466,7 @@ static int parse_terminal(char *bnf_parsed)
 	}
 	else
 	{
-		assert_msg(*bnf_parsed!='<', "Undefined token defined <.");
+		assert(*bnf_parsed!='<');//, "Undefined token defined <.");
 
 		if (*bnf_parsed==get_char())
 			return 1;
