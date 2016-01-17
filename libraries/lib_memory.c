@@ -256,14 +256,48 @@ int memory_instance_copy_t(memory_get mg, char *target, int len)
 	return copied;
 }
 
+
+int memory_instance_write_t(char *target, memory_get mg, int len)
+{
+	int copied = 0;
+
+	int block = mg._block_index;
+	int index = mg._index;
+	while (copied != len)
+	{
+		int capacity = mem_blocks[block].__filled - index;
+		if (capacity >= (len-copied)){
+			memcpy(mem_blocks[block].cdata + index, target+copied , len-copied);
+			return len;
+		}
+		else{
+			block = mem_blocks[block].__next_block;
+			if (block==-1)
+				return copied;
+			index = 0;
+		}
+	}
+	return copied;
+}
+
 int memory_instance_copy_string_t(memory_get mg, char *target)
 {
 	int i=0;
 	int ch;
-	while ((ch=memory_instance_get_and_move_char(&mg)) != -1)
+	while ((ch=memory_instance_get_and_move_char(&mg)) != '\0'){
 		target[i++] = (char)ch;
+	}
 	target[i] = '\0';
 	return i;
+}
+
+int memory_instance_strlen(memory_get mg)
+{
+	int len=0;
+	while (memory_instance_get_and_move_char(&mg) != '\0'){
+		len++;
+	}
+	return len;
 }
 
 /**
@@ -356,6 +390,22 @@ int memory_instance_get_char(memory_get mg)
 	return mem_blocks[mg._block_index].cdata[mg._index];
 }
 
+
+int32_t memory_instance_get_int32(memory_get mg)
+{
+	int32_t target;
+	memory_instance_copy_t(mg, (char *)&target, 4);
+	return target;
+}
+
+
+int64_t memory_instance_get_int64(memory_get mg)
+{
+	int64_t target;
+	memory_instance_copy_t(mg, (char *)&target, 8);
+	return target;
+}
+
 /**
  * Gets character at reference `mg` and moves the reference
  * step ahead.
@@ -393,22 +443,16 @@ void memory_instance_print(int mem_index)
 				printf("%c", mem_blocks[block].cdata[i]);
 			}
 			else
-				printf("{%d}", mem_blocks[block].cdata[i]);
+				printf("%c", mem_blocks[block].cdata[i] & 0xff);
 		}
 		block = mem_blocks[block].__next_block;
 	}
 }
 
-void memory_debug()
+
+void memory_instance_print_t(memory_get mg, int len)
 {
-	printf("\n\nFIRST_FREE_MEM_BLOCK : %d, FIRST_FREE_INSTANCE : %d\n\n", first_free_memblock, first_free_instance);
 	int i=0;
-	printf("MEMBLOCKS\n\n");
-	for (i=0; i<N_MEM_BLOCKS; i++){
-		printf("%d : filled{%d}, is_free_block{%d}, next_block{%d}, next_free_block{%d}\n",i, mem_blocks[i].__filled, mem_blocks[i].__is_free_block, mem_blocks[i].__next_block, mem_blocks[i].__next_free_block);
-	}
-	printf("INSTANCES\n\n");
-	for (i=0; i<N_MEM_BLOCKS; i++){
-		printf("%d : Total{%d}, is_free_block{%d}, first_block{%d}, last_block{%d}\n",i, instances[i].t_length, instances[i].__is_free_block, instances[i].__first_block, instances[i].__final_block);
-	}
+	for (i=0; i<len; i++)
+		printf("%c", (char)memory_instance_get_and_move_char(&mg));
 }
