@@ -19,3 +19,5 @@ int is_big_endian();
 uint16_t to_bigendian16(uint16_t num);
 uint32_t to_bigendian32(uint32_t num);
 uint64_t to_bigendian64(uint64_t num);
+
+void kprintf(char *str);

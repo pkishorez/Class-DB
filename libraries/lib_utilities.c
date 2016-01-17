@@ -12,6 +12,7 @@
 
 #include "headers/headers.h"
 #include "headers/lib_utilities.h"
+#include "headers/lib_terminal.h"
 
 /**
  * Checks if two strings are equal or not.
@@ -199,4 +200,16 @@ uint16_t bigendian16(uint16_t num)
 	}
 	else
 		return num;
+}
+
+void kprintf(char *str)
+{
+	int i=0;
+	for (i=0; str[i]!='\0'; i++)
+	{
+		if (isprint(str[i]) || str[i]=='\n')
+			printf("%c", str[i]);
+		else
+			ansi_bold_text("%d", str[i]);
+	}
 }
